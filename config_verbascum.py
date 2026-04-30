@@ -33,3 +33,14 @@ ALPHA = 0.5           # curvature of penalty; 0.5–1 is reasonable. lower = gen
 # Monte Carlo for demography-with-immigration
 REPLICATES = 2000
 RANDOM_SEED = 42
+
+# === Life-history model for generational Ne correction (genetics only) ===
+# "monocarpic"      — Vitalis et al. (2004): Ne_gen = ((2-s)/2) * N * T²
+#                     Use for biennials / monocarpic perennials with seed bank
+# "annual_seedbank" — Nunney (2002): Ne_gen = N * T
+#                     Use for true annuals with seed dormancy
+# "iteroparous"     — Nunney (1991): no upward T-correction (ne_ratio captures this)
+#                     Use for perennial plants with vegetative survival, amphibians, etc.
+NE_GENERATION_MODEL = "monocarpic"
+S_PREREPRODUCTIVE_MORTALITY = 0.5   # fraction of plants dying before first reproduction
+                                    # (rosettes that never flower); only used if monocarpic

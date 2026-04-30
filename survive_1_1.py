@@ -50,6 +50,8 @@ RANDOM_SEED               = cfg.RANDOM_SEED
 
 NE_TARGET                 = cfg.NE_TARGET
 ALPHA                     = cfg.ALPHA
+NE_GENERATION_MODEL       = getattr(cfg, "NE_GENERATION_MODEL", "iteroparous")
+S_PREREPRODUCTIVE_MORTALITY = getattr(cfg, "S_PREREPRODUCTIVE_MORTALITY", 0.0)
 
 # =============== PROJECT CONFIG ===============================================================================================
 PROJECT_NAME = "C260159_Verbascum_Landskrona_exploatering_kompensation"         # used for results folder naming
@@ -101,6 +103,26 @@ def _coerce_listlike(val):
         return raw
     return [val]
 
+def _ne_gen_multiplier(gen_time_years: float) -> float:
+    """
+    Scaling factor to convert annual Ne (ratio × Nc) to generational Ne.
+    Applied ONLY to genetics sub-models (B, B_var, Blink).
+    Does NOT affect demographic models (A, C) or sigma_effective().
+
+    "monocarpic"      — Vitalis et al. (2004): Ne_gen = ((2-s)/2) * N * T²
+                        factor = ((2-s)/2) * T  relative to annual-Ne baseline
+    "annual_seedbank" — Nunney (2002): Ne_gen = N * T
+                        factor = T
+    "iteroparous"     — Nunney (1991): no upward T-correction; factor = 1.0
+                        (ne_ratio already captures adult-survival effects)
+    """
+    if NE_GENERATION_MODEL == "monocarpic":
+        return ((2.0 - S_PREREPRODUCTIVE_MORTALITY) / 2.0) * gen_time_years
+    elif NE_GENERATION_MODEL == "annual_seedbank":
+        return float(gen_time_years)
+    else:  # "iteroparous" or unrecognised — safe default
+        return 1.0
+
 def _run_full_pipeline(result_dir, rng):
     """
     This is basically the body of main() from 'rows = []' down to the final plots.
@@ -118,12 +140,18 @@ def _run_full_pipeline(result_dir, rng):
         Ne_demo = ratio * NC_POP       # core / established pop (for demography models A and C)
         Ne_gen  = ratio * NC_METAPOP   # local pond / metapop unit (for genetics model B)
 
+        # Generational Ne correction (Vitalis / Nunney) — genetics sub-models only.
+        # ne_gen_mult_* converts annual-scale Ne to generational Ne for the given generation time.
+        ne_gen_mult_min = _ne_gen_multiplier(gt_min)
+        ne_gen_mult_max = _ne_gen_multiplier(gt_max)
+        Ne_gen_min = Ne_gen * ne_gen_mult_min   # corrected Ne for min-gen-time scenarios
+        Ne_gen_max = Ne_gen * ne_gen_mult_max   # corrected Ne for max-gen-time scenarios
 
         # Genetics
         generations_minGT = T / gt_min
         generations_maxGT = T / gt_max
-        Ft_iso_minGT = inbreeding_after_t_generations(Ne_gen, generations_minGT)
-        Ft_iso_maxGT = inbreeding_after_t_generations(Ne_gen, generations_maxGT)
+        Ft_iso_minGT = inbreeding_after_t_generations(Ne_gen_min, generations_minGT)
+        Ft_iso_maxGT = inbreeding_after_t_generations(Ne_gen_max, generations_maxGT)
 
         # Demography WITHOUT immigration (analytical), but now using Ne-dependent sigma
         pexts_noI = []
@@ -138,8 +166,8 @@ def _run_full_pipeline(result_dir, rng):
             H_threshold = H_MIN_FRAC * H0
             Mgen_minGT = My * gt_min
             Mgen_maxGT = My * gt_max
-            Feq_minGT = equilibrium_inbreeding_with_migration(Ne_gen, Mgen_minGT, NC_METAPOP)
-            Feq_maxGT = equilibrium_inbreeding_with_migration(Ne_gen, Mgen_maxGT, NC_METAPOP)
+            Feq_minGT = equilibrium_inbreeding_with_migration(Ne_gen_min, Mgen_minGT, NC_METAPOP)
+            Feq_maxGT = equilibrium_inbreeding_with_migration(Ne_gen_max, Mgen_maxGT, NC_METAPOP)
 
             # ===== Independent Model A: Demography with density dependence (Ne-independent) =====
             demog_density_pexts = []
@@ -168,16 +196,19 @@ def _run_full_pipeline(result_dir, rng):
 
             # ===== Independent Model B: Genetics-only =====
             gen_time_for_genetics = GEN_TIME_FOR_GENETICS or GEN_TIME_YEARS[0]
+            # generational Ne correction for this specific gen-time setting
+            ne_gen_mult_gfg = _ne_gen_multiplier(gen_time_for_genetics)
+            Ne_gen_gfg = Ne_gen * ne_gen_mult_gfg
 
             gens_minGT = T / gen_time_for_genetics
 
             # Isolated drift only
-            Ft_iso_T = inbreeding_after_t_generations(Ne_gen, gens_minGT)
+            Ft_iso_T = inbreeding_after_t_generations(Ne_gen_gfg, gens_minGT)
             H_iso_T = H0 * (1.0 - Ft_iso_T)
 
             # Drift + immigration
             Ft_mig_T = F_with_migration_over_time(
-                Ne=Ne_gen,
+                Ne=Ne_gen_gfg,
                 Nc=NC_METAPOP,
                 migrants_per_year=My,
                 gen_time_years=gen_time_for_genetics,
@@ -210,6 +241,7 @@ def _run_full_pipeline(result_dir, rng):
                 ne_ratio_start=NE_RATIO_START,
                 ne_ratio_end=NE_RATIO_END,
                 ne_ratio_relax_years=NE_RATIO_RELAX_YEARS,
+                ne_gen_multiplier=ne_gen_mult_gfg,
             )
             genetics_var_flag = bool(surv_flag_var >= 1.0)
 
@@ -284,6 +316,7 @@ def _run_full_pipeline(result_dir, rng):
                     ne_ratio_end=NE_RATIO_END,
                     ne_ratio_relax_years=NE_RATIO_RELAX_YEARS,
                     K_scale=NC_METAPOP,   # scale 'healthy' breeder census
+                    ne_gen_multiplier=ne_gen_mult_gfg,
                 )
 
                 H_end_all.append(H_end)
@@ -894,6 +927,7 @@ def _run_full_pipeline(result_dir, rng):
                     ne_ratio_end=NE_RATIO_END,
                     ne_ratio_relax_years=NE_RATIO_RELAX_YEARS,
                     K_scale=NC_METAPOP,
+                    ne_gen_multiplier=_ne_gen_multiplier(GEN_TIME_FOR_GENETICS),
                 )
                 # compute recovery time for this (ratio, My, r, se) combo
                 H_threshold_curve = H_MIN_FRAC * H0
@@ -999,6 +1033,7 @@ def simulate_heterozygosity_drift_recoveringNe(
     ne_ratio_start: float,
     ne_ratio_end: float,
     ne_ratio_relax_years: float,
+    ne_gen_multiplier: float = 1.0,
 ):
     """
     Stochastic drift + immigration, BUT Ne is allowed to increase over time
@@ -1041,7 +1076,7 @@ def simulate_heterozygosity_drift_recoveringNe(
             end_ratio=ne_ratio_end,
             relax_years=ne_ratio_relax_years
         )
-        Ne_g = ratio_t * Nc
+        Ne_g = ratio_t * Nc * ne_gen_multiplier
         Ne_g = max(2.0, Ne_g)  # avoid nonsense like Ne<2 in binomial
 
         # migration first
@@ -1715,6 +1750,7 @@ def simulate_genetics_on_demography_paths(
     ne_ratio_end: float,
     ne_ratio_relax_years: float,
     K_scale: float,
+    ne_gen_multiplier: float = 1.0,
 ):
     """
     Eco-genetic coupling ("B_link"):
@@ -1777,7 +1813,7 @@ def simulate_genetics_on_demography_paths(
         )
         ratio_t = base_ratio * abundance_factor
 
-        Ne_g = ratio_t * Nc_t
+        Ne_g = ratio_t * Nc_t * ne_gen_multiplier
         Ne_g = np.maximum(2.0, Ne_g)  # avoid nonsense
 
         # migrants this generation = sum of yearly migrants across that gen window
@@ -1842,11 +1878,13 @@ def genetics_viability_variable_ratio(
     ne_ratio_start: float,
     ne_ratio_end: float,
     ne_ratio_relax_years: float,
+    ne_gen_multiplier: float = 1.0,
 ):
     """
     Genetic viability under a time-varying Ne/Nc ratio.
-    We simulate drift + immigration where Ne_g(t) = Nc * ne_ratio_over_time(t),
+    We simulate drift + immigration where Ne_g(t) = Nc * ne_ratio_over_time(t) * ne_gen_multiplier,
     i.e. breeder structure 'recovers' toward a healthier ratio.
+    ne_gen_multiplier applies Vitalis/Nunney generational Ne correction when set.
 
     Returns:
         H_mean_T: mean heterozygosity across replicates at final time
@@ -1863,6 +1901,7 @@ def genetics_viability_variable_ratio(
         ne_ratio_start=ne_ratio_start,
         ne_ratio_end=ne_ratio_end,
         ne_ratio_relax_years=ne_ratio_relax_years,
+        ne_gen_multiplier=ne_gen_multiplier,
     )
 
     # last column = heterozygosity at final time point for each replicate
@@ -1953,12 +1992,18 @@ def main():
         Ne_demo = ratio * NC_POP       # core / established pop (for demography models A and C)
         Ne_gen  = ratio * NC_METAPOP   # local pond / metapop unit (for genetics model B)
 
+        # Generational Ne correction (Vitalis / Nunney) — genetics sub-models only.
+        # ne_gen_mult_* converts annual-scale Ne to generational Ne for the given generation time.
+        ne_gen_mult_min = _ne_gen_multiplier(gt_min)
+        ne_gen_mult_max = _ne_gen_multiplier(gt_max)
+        Ne_gen_min = Ne_gen * ne_gen_mult_min   # corrected Ne for min-gen-time scenarios
+        Ne_gen_max = Ne_gen * ne_gen_mult_max   # corrected Ne for max-gen-time scenarios
 
         # Genetics
         generations_minGT = T / gt_min
         generations_maxGT = T / gt_max
-        Ft_iso_minGT = inbreeding_after_t_generations(Ne_gen, generations_minGT)
-        Ft_iso_maxGT = inbreeding_after_t_generations(Ne_gen, generations_maxGT)
+        Ft_iso_minGT = inbreeding_after_t_generations(Ne_gen_min, generations_minGT)
+        Ft_iso_maxGT = inbreeding_after_t_generations(Ne_gen_max, generations_maxGT)
 
         # Demography WITHOUT immigration (analytical), but now using Ne-dependent sigma
         pexts_noI = []
@@ -1973,8 +2018,8 @@ def main():
             H_threshold = H_MIN_FRAC * H0
             Mgen_minGT = My * gt_min
             Mgen_maxGT = My * gt_max
-            Feq_minGT = equilibrium_inbreeding_with_migration(Ne_gen, Mgen_minGT, NC_METAPOP)
-            Feq_maxGT = equilibrium_inbreeding_with_migration(Ne_gen, Mgen_maxGT, NC_METAPOP)
+            Feq_minGT = equilibrium_inbreeding_with_migration(Ne_gen_min, Mgen_minGT, NC_METAPOP)
+            Feq_maxGT = equilibrium_inbreeding_with_migration(Ne_gen_max, Mgen_maxGT, NC_METAPOP)
 
             # ===== Independent Model A: Demography with density dependence (Ne-independent) =====
             demog_density_pexts = []
@@ -2003,16 +2048,19 @@ def main():
 
             # ===== Independent Model B: Genetics-only =====
             gen_time_for_genetics = GEN_TIME_FOR_GENETICS or GEN_TIME_YEARS[0]
+            # generational Ne correction for this specific gen-time setting
+            ne_gen_mult_gfg = _ne_gen_multiplier(gen_time_for_genetics)
+            Ne_gen_gfg = Ne_gen * ne_gen_mult_gfg
 
             gens_minGT = T / gen_time_for_genetics
 
             # Isolated drift only
-            Ft_iso_T = inbreeding_after_t_generations(Ne_gen, gens_minGT)
+            Ft_iso_T = inbreeding_after_t_generations(Ne_gen_gfg, gens_minGT)
             H_iso_T = H0 * (1.0 - Ft_iso_T)
 
             # Drift + immigration
             Ft_mig_T = F_with_migration_over_time(
-                Ne=Ne_gen,
+                Ne=Ne_gen_gfg,
                 Nc=NC_METAPOP,
                 migrants_per_year=My,
                 gen_time_years=gen_time_for_genetics,
@@ -2045,6 +2093,7 @@ def main():
                 ne_ratio_start=NE_RATIO_START,
                 ne_ratio_end=NE_RATIO_END,
                 ne_ratio_relax_years=NE_RATIO_RELAX_YEARS,
+                ne_gen_multiplier=ne_gen_mult_gfg,
             )
             genetics_var_flag = bool(surv_flag_var >= 1.0)
 
@@ -2119,6 +2168,7 @@ def main():
                     ne_ratio_end=NE_RATIO_END,
                     ne_ratio_relax_years=NE_RATIO_RELAX_YEARS,
                     K_scale=NC_METAPOP,   # scale 'healthy' breeder census
+                    ne_gen_multiplier=ne_gen_mult_gfg,
                 )
 
                 H_end_all.append(H_end)
@@ -2729,6 +2779,7 @@ def main():
                     ne_ratio_end=NE_RATIO_END,
                     ne_ratio_relax_years=NE_RATIO_RELAX_YEARS,
                     K_scale=NC_METAPOP,
+                    ne_gen_multiplier=_ne_gen_multiplier(GEN_TIME_FOR_GENETICS),
                 )
                 # compute recovery time for this (ratio, My, r, se) combo
                 H_threshold_curve = H_MIN_FRAC * H0
