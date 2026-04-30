@@ -1,19 +1,11 @@
-import math
-import itertools
 import os
-from dataclasses import dataclass, asdict
-
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.ticker as mticker
-from matplotlib.colors import Normalize
-from datetime import datetime
 import re
 
-
-# --- species switch ---
-SPECIES = "V"          # "B = bufo",  L = lissotriton", V = "Verbascum"
+# --- SPECIES SWITCH ---
+# "B"           = Bufo bufo (common toad) — amphibian with long generation time, high adult survival, and strong Ne/Nc disparity
+# "L"           = Lissotriton vulgaris (smooth newt) — amphibian with shorter generation time, moderate adult survival, and moderate Ne/Nc disparity
+# "V"           = Verbascum sp. (mullein) — plant with short generation time, high adult survival, and weak Ne/Nc disparity
+SPECIES = "V"
 
 if SPECIES == "B":
     import config_bufo as cfg
@@ -21,62 +13,51 @@ elif SPECIES == "L":
     import config_lissotriton as cfg
 elif SPECIES == "V":
     import config_verbascum as cfg
+elif SPECIES == "H":
+    import config_helichrysum as cfg
+elif SPECIES == "M":
+    import config_my_own_species as cfg
 else:
     raise ValueError(f"Unknown SPECIES {SPECIES!r}")
 
-# Now bind all config values from cfg into local names for convenience.
-NE_RATIOS                 = cfg.NE_RATIOS
-GEN_TIME_YEARS            = cfg.GEN_TIME_YEARS
-MIGRANTS_PER_YEAR         = cfg.MIGRANTS_PER_YEAR
-
-TIME_HORIZON_YEARS        = cfg.TIME_HORIZON_YEARS
-QUASI_EXT_THRESHOLD       = cfg.QUASI_EXT_THRESHOLD
-SURVIVAL_TARGET           = cfg.SURVIVAL_TARGET
-
-DENSITY_MODEL             = cfg.DENSITY_MODEL
-K                         = cfg.K
-THETA                     = cfg.THETA
-
-H0                        = cfg.H0
-H_MIN_FRAC                = cfg.H_MIN_FRAC
-GEN_TIME_FOR_GENETICS     = cfg.GEN_TIME_FOR_GENETICS
-GENETIC_EVAL              = cfg.GENETIC_EVAL
-
-R_GRID                    = cfg.R_GRID
-SIGMA_E_GRID              = cfg.SIGMA_E_GRID
-
-REPLICATES                = cfg.REPLICATES
-RANDOM_SEED               = cfg.RANDOM_SEED
-
-NE_TARGET                 = cfg.NE_TARGET
-ALPHA                     = cfg.ALPHA
-NE_GENERATION_MODEL       = getattr(cfg, "NE_GENERATION_MODEL", "iteroparous")
-S_PREREPRODUCTIVE_MORTALITY = getattr(cfg, "S_PREREPRODUCTIVE_MORTALITY", 0.0)
+K = cfg.K
 
 # =============== PROJECT CONFIG ===============================================================================================
 PROJECT_NAME = "C260159_Verbascum_Landskrona_vitalis_0-scen"         # used for results folder naming
-NC_POP =     636                                     # census for the total population
-NC_METAPOP = K                                      # census for meta population, breeders locally (pond etc.). 
 
-# Disturbance / pond maturation profile
+# CENSUS FOR THE TOTAL POPULATION
+# i.e. the number of individuals that contribute to density dependence and demographic stochasticity in the 
+# demographic models (A and C).
+NC_POP =     636      
+
+# Census for meta population, breeders locally (pond etc.). 
+# his is the number that matters for genetics (B), and also for Ne-sensitive demography (C) since it affects sigma_e.
+NC_METAPOP = K                                      
+
+# INITIAL DISTURBANCE
+# can be set to imitate a new, artificial environment (new dug pond, new habitat etc.) 
+# that is expected to be more variable than a mature, established habitat. 
+# This is implemented as a temporary inflation of sigma_e in the early years of the simulation, 
+# which then relaxes back to the normal Ne-dependent value over time. The idea is that a new pond might have more variable 
+# conditions (e.g. water levels, temperature, food availability) until it "settles in" and develops more stable microhabitats, vegetation, etc. 
+# This is a simple way to capture that without having to model the complex ecological succession explicitly.
 DISTURBANCE_SIGMA_FACTOR_START = 1.0   # multiplier on sigma_e in year 0 (freshly dug pond, unstable) sensitive range 1.5–2.0
-DISTURBANCE_SIGMA_FACTOR_END   = 1.0   # multiplier on sigma_e once pond is mature/stable
+DISTURBANCE_SIGMA_FACTOR_END   = 1.0   # multiplier on sigma_e once environment is mature/stable
 DISTURBANCE_RELAX_YEARS        = 0    # how fast conditions "settle", in years
 
-# modified B 
+# INITAL BOTTLENECK / FOUNDER EFFECT 
+# i.e. the initial Ne/Nc ratio at the time of founding or reintroduction. 
+# This can be set to a low value to reflect a strong founder effect, and then it can either stay low (if the breeding structure remains skewed) 
+# or it can recover over time (if the population grows and breeding structure normalizes). 
+# This affects the early genetic dynamics and also the early demographic variability if using the Ne-sensitive demography model (C).
 NE_RATIO_START = 0.15      # founder effective ratio Ne/Nc in year 0
 NE_RATIO_END   = 0.15      # healthy long-term effective ratio Ne/Nc
 NE_RATIO_RELAX_YEARS = 0   # how fast breeding structure "normalizes"
 
-# --- Initial structure assumptions (can be scenario-specific later)
-INIT_PROP_ADULT = 1          # fraction of N0 that are sexually mature breeders ex. 0.5, 0.6, 0.7, ... 
-INIT_FEMALE_FRAC = 0.5         # sex-ratio correction factor: 0.5 = hermaphrodite (no Ne penalty); <0.5 or >0.5 = skewed ratio
+# DEMOGRAPHIC STRUCTURE
+INIT_PROP_ADULT = 1       # fraction of N0 that are sexually mature breeders ex. 0.5, 0.6, 0.7 or 1 for hermaphrodites like plants.
+INIT_FEMALE_FRAC = 0.5    # sex-ratio correction factor: 0.5 = hermaphrodite (no Ne penalty); <0.5 or >0.5 = skewed ratio for species with separate sexes
 
-# --- not yet implemented ---
-# climate_modifiers
-# migrants_schedule :   Allow immigration to vary through time (early stocking pulse vs long-term background dispersal).
-                        #(This makes the model usable for reintroduction / assisted gene flow planning.)
-# ==============================================================================================================
 
 # Meta-model weights (must sum to 1)
 META_WEIGHTS = {
@@ -85,6 +66,39 @@ META_WEIGHTS = {
     "ne_sensitive_demography": 0.33,
 }
 SCORE_WEIGHTS = {"genetic": 0.5, "demographic": 0.5}
+
+# Now bind all config values from cfg into local names for convenience.
+NE_RATIOS                 = cfg.NE_RATIOS
+GEN_TIME_YEARS            = cfg.GEN_TIME_YEARS
+MIGRANTS_PER_YEAR         = cfg.MIGRANTS_PER_YEAR
+TIME_HORIZON_YEARS        = cfg.TIME_HORIZON_YEARS
+QUASI_EXT_THRESHOLD       = cfg.QUASI_EXT_THRESHOLD
+SURVIVAL_TARGET           = cfg.SURVIVAL_TARGET
+DENSITY_MODEL             = cfg.DENSITY_MODEL
+THETA                     = cfg.THETA
+H0                        = cfg.H0
+H_MIN_FRAC                = cfg.H_MIN_FRAC
+GEN_TIME_FOR_GENETICS     = cfg.GEN_TIME_FOR_GENETICS
+GENETIC_EVAL              = cfg.GENETIC_EVAL
+R_GRID                    = cfg.R_GRID
+SIGMA_E_GRID              = cfg.SIGMA_E_GRID
+REPLICATES                = cfg.REPLICATES
+RANDOM_SEED               = cfg.RANDOM_SEED
+NE_TARGET                 = cfg.NE_TARGET
+ALPHA                     = cfg.ALPHA
+NE_GENERATION_MODEL       = getattr(cfg, "NE_GENERATION_MODEL", "iteroparous")
+S_PREREPRODUCTIVE_MORTALITY = getattr(cfg, "S_PREREPRODUCTIVE_MORTALITY", 0.0)
+
+import math
+import itertools
+from dataclasses import dataclass, asdict
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
+from matplotlib.colors import Normalize
+from datetime import datetime
+
 
 #=================================== DEFINITIONS ============================================================================
 def _coerce_listlike(val):
