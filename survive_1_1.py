@@ -5,6 +5,8 @@ import re
 # "B"           = Bufo bufo (common toad) — amphibian with long generation time, high adult survival, and strong Ne/Nc disparity
 # "L"           = Lissotriton vulgaris (smooth newt) — amphibian with shorter generation time, moderate adult survival, and moderate Ne/Nc disparity
 # "V"           = Verbascum sp. (mullein) — plant with short generation time, high adult survival, and weak Ne/Nc disparity
+# "H"           = Helichrysum sp. (everlasting) — plant with short generation time, low adult survival, and strong Ne/Nc disparity
+# "M"           = My Own Species — custom species configuration
 SPECIES = "V"
 
 if SPECIES == "B":
@@ -24,6 +26,7 @@ K = cfg.K
 
 # =============== PROJECT CONFIG ===============================================================================================
 PROJECT_NAME = "C260159_Verbascum_Landskrona_vitalis_0-scen"         # used for results folder naming
+ENGLISH = True        # True = English figure text; False = Swedish figure text
 
 # CENSUS FOR THE TOTAL POPULATION
 # i.e. the number of individuals that contribute to density dependence and demographic stochasticity in the 
@@ -662,7 +665,7 @@ def _run_full_pipeline(result_dir, rng):
         plt.plot(
             TS_dem,
             mean_surv_series,
-            label=f"Invandring {My}/år",
+            label=(f"Immigration {My}/yr" if ENGLISH else f"Invandring {My}/år"),
             linewidth=2
         )
         # draw CI ribbon
@@ -682,9 +685,9 @@ def _run_full_pipeline(result_dir, rng):
         ha="right", va="bottom", fontsize=9, color="black"
     )
 
-    plt.xlabel("År")
-    plt.ylabel("Överlevnadssannolikhet (1 − utdöenderisk)")
-    plt.title(f"Submodell A: Demografi (Nc≈{NC_POP}), täthetsreglering utan Ne-effekter")
+    plt.xlabel("Year" if ENGLISH else "År")
+    plt.ylabel("Survival probability (1 − extinction risk)" if ENGLISH else "Överlevnadssannolikhet (1 − utdöenderisk)")
+    plt.title(f"Sub-model A: Demography (Nc≈{NC_POP}), density regulation without Ne effects" if ENGLISH else f"Submodell A: Demografi (Nc≈{NC_POP}), täthetsreglering utan Ne-effekter")
     plt.legend(fontsize=8)
     plt.tight_layout()
 
@@ -743,7 +746,7 @@ def _run_full_pipeline(result_dir, rng):
                 lo_curve.append(lo)
                 hi_curve.append(hi)
 
-            lbl = f"Ne/Nc={ratio:.2f}, Inv={My}/år"
+            lbl = (f"Ne/Nc={ratio:.2f}, Imm={My}/yr" if ENGLISH else f"Ne/Nc={ratio:.2f}, Inv={My}/år")
             colr = ratio_colors[ratio]
             ls   = style_map[My]
 
@@ -772,13 +775,13 @@ def _run_full_pipeline(result_dir, rng):
     plt.text(
         TIME_HORIZON_YEARS,
         H_threshold + 0.01,
-        f"{int(H_MIN_FRAC*100)}% av H0",
+        (f"{int(H_MIN_FRAC*100)}% of H0" if ENGLISH else f"{int(H_MIN_FRAC*100)}% av H0"),
         ha="right", va="bottom", fontsize=9, color="black"
     )
 
-    plt.xlabel("År")
-    plt.ylabel("Heterozygositet H(t)")
-    plt.title(f"Submodell B: Genetisk variation (Nc≈{NC_METAPOP} ~ K={K}, återetablerad lokal population)")
+    plt.xlabel("Year" if ENGLISH else "År")
+    plt.ylabel("Heterozygosity H(t)" if ENGLISH else "Heterozygositet H(t)")
+    plt.title(f"Sub-model B: Genetic variation (Nc≈{NC_METAPOP} ~ K={K}, re-established local population)" if ENGLISH else f"Submodell B: Genetisk variation (Nc≈{NC_METAPOP} ~ K={K}, återetablerad lokal population)")
     plt.legend(fontsize=8, ncol=2)
     plt.tight_layout()
 
@@ -848,7 +851,7 @@ def _run_full_pipeline(result_dir, rng):
                 direction = "down",
             )
 
-            label = f"Ne/Nc={ratio:.2f}, Inv={My}/år"
+            label = (f"Ne/Nc={ratio:.2f}, Imm={My}/yr" if ENGLISH else f"Ne/Nc={ratio:.2f}, Inv={My}/år")
             plt.plot(
                 TS_plot,
                 mean_curve,
@@ -873,9 +876,9 @@ def _run_full_pipeline(result_dir, rng):
         ha="right", va="bottom", fontsize=9, color="black"
     )
 
-    plt.xlabel("År")
-    plt.ylabel("Överlevnadssannolikhet (1 − CDF för utdöendetid)")
-    plt.title(f"Submodell C: Demografi med Ne-känslig miljöstokasticitet (Nc≈{NC_POP})")
+    plt.xlabel("Year" if ENGLISH else "År")
+    plt.ylabel("Survival probability (1 − extinction time CDF)" if ENGLISH else "Överlevnadssannolikhet (1 − CDF för utdöendetid)")
+    plt.title(f"Sub-model C: Demography with Ne-sensitive environmental stochasticity (Nc≈{NC_POP})" if ENGLISH else f"Submodell C: Demografi med Ne-känslig miljöstokasticitet (Nc≈{NC_POP})")
     plt.legend(ncol=2, fontsize=8)
     plt.tight_layout()
 
@@ -960,7 +963,7 @@ def _run_full_pipeline(result_dir, rng):
             if H_mean_curve_link is None:
                 continue
 
-            label = f"Ne/Nc={ratio:.2f}, Inv={My}/år"
+            label = (f"Ne/Nc={ratio:.2f}, Imm={My}/yr" if ENGLISH else f"Ne/Nc={ratio:.2f}, Inv={My}/år")
 
             # Mean line & CI ribbon with viridis colour
             plt.plot(
@@ -984,13 +987,13 @@ def _run_full_pipeline(result_dir, rng):
     plt.text(
         TIME_HORIZON_YEARS,
         H_threshold + 0.01,
-        f"{int(H_MIN_FRAC*100)}% av H0",
+        (f"{int(H_MIN_FRAC*100)}% of H0" if ENGLISH else f"{int(H_MIN_FRAC*100)}% av H0"),
         ha="right", va="bottom", fontsize=9, color="black"
     )
 
-    plt.xlabel("År")
-    plt.ylabel("Heterozygositet H(t)")
-    plt.title("Submodell Blink: Ekogenetisk koppling (demografi → genetik)")
+    plt.xlabel("Year" if ENGLISH else "År")
+    plt.ylabel("Heterozygosity H(t)" if ENGLISH else "Heterozygositet H(t)")
+    plt.title("Sub-model Blink: Eco-genetic coupling (demography → genetics)" if ENGLISH else "Submodell Blink: Ekogenetisk koppling (demografi → genetik)")
     plt.legend(fontsize=8, ncol=2)
     plt.tight_layout()
 
@@ -1012,9 +1015,9 @@ def _run_full_pipeline(result_dir, rng):
 
     plt.figure(figsize=(5, 3))
     plt.plot(years, factors, lw=2)
-    plt.xlabel("År sedan anläggning")
-    plt.ylabel("σₑ-multiplikator")
-    plt.title("Initial störning → stabilisering")
+    plt.xlabel("Years since establishment" if ENGLISH else "År sedan anläggning")
+    plt.ylabel("σ_e multiplier" if ENGLISH else "σₑ-multiplikator")
+    plt.title("Initial disturbance → stabilisation" if ENGLISH else "Initial störning → stabilisering")
     plt.grid(alpha=0.3)
     fig_disturb = os.path.join(result_dir, "disturbance_decay.png")
     plt.tight_layout()
@@ -2515,7 +2518,7 @@ def main():
         plt.plot(
             TS_dem,
             mean_surv_series,
-            label=f"Invandring {My}/år",
+            label=(f"Immigration {My}/yr" if ENGLISH else f"Invandring {My}/år"),
             linewidth=2
         )
         # draw CI ribbon
@@ -2535,9 +2538,9 @@ def main():
         ha="right", va="bottom", fontsize=9, color="black"
     )
 
-    plt.xlabel("År")
-    plt.ylabel("Överlevnadssannolikhet (1 − utdöenderisk)")
-    plt.title(f"Submodell A: Demografi (Nc≈{NC_POP}), täthetsreglering utan Ne-effekter")
+    plt.xlabel("Year" if ENGLISH else "År")
+    plt.ylabel("Survival probability (1 − extinction risk)" if ENGLISH else "Överlevnadssannolikhet (1 − utdöenderisk)")
+    plt.title(f"Sub-model A: Demography (Nc≈{NC_POP}), density regulation without Ne effects" if ENGLISH else f"Submodell A: Demografi (Nc≈{NC_POP}), täthetsreglering utan Ne-effekter")
     plt.legend(fontsize=8)
     plt.tight_layout()
 
@@ -2596,7 +2599,7 @@ def main():
                 lo_curve.append(lo)
                 hi_curve.append(hi)
 
-            lbl = f"Ne/Nc={ratio:.2f}, Inv={My}/år"
+            lbl = (f"Ne/Nc={ratio:.2f}, Imm={My}/yr" if ENGLISH else f"Ne/Nc={ratio:.2f}, Inv={My}/år")
             colr = ratio_colors[ratio]
             ls   = style_map[My]
 
@@ -2625,13 +2628,13 @@ def main():
     plt.text(
         TIME_HORIZON_YEARS,
         H_threshold + 0.01,
-        f"{int(H_MIN_FRAC*100)}% av H0",
+        (f"{int(H_MIN_FRAC*100)}% of H0" if ENGLISH else f"{int(H_MIN_FRAC*100)}% av H0"),
         ha="right", va="bottom", fontsize=9, color="black"
     )
 
-    plt.xlabel("År")
-    plt.ylabel("Heterozygositet H(t)")
-    plt.title(f"Submodell B: Genetisk variation (Nc≈{NC_METAPOP} ~ K={K}, återetablerad lokal population)")
+    plt.xlabel("Year" if ENGLISH else "År")
+    plt.ylabel("Heterozygosity H(t)" if ENGLISH else "Heterozygositet H(t)")
+    plt.title(f"Sub-model B: Genetic variation (Nc≈{NC_METAPOP} ~ K={K}, re-established local population)" if ENGLISH else f"Submodell B: Genetisk variation (Nc≈{NC_METAPOP} ~ K={K}, återetablerad lokal population)")
     plt.legend(fontsize=8, ncol=2)
     plt.tight_layout()
 
@@ -2701,7 +2704,7 @@ def main():
                 direction = "down",
             )
 
-            label = f"Ne/Nc={ratio:.2f}, Inv={My}/år"
+            label = (f"Ne/Nc={ratio:.2f}, Imm={My}/yr" if ENGLISH else f"Ne/Nc={ratio:.2f}, Inv={My}/år")
             plt.plot(
                 TS_plot,
                 mean_curve,
@@ -2726,9 +2729,9 @@ def main():
         ha="right", va="bottom", fontsize=9, color="black"
     )
 
-    plt.xlabel("År")
-    plt.ylabel("Överlevnadssannolikhet (1 − CDF för utdöendetid)")
-    plt.title(f"Submodell C: Demografi med Ne-känslig miljöstokasticitet (Nc≈{NC_POP})")
+    plt.xlabel("Year" if ENGLISH else "År")
+    plt.ylabel("Survival probability (1 − extinction time CDF)" if ENGLISH else "Överlevnadssannolikhet (1 − CDF för utdöendetid)")
+    plt.title(f"Sub-model C: Demography with Ne-sensitive environmental stochasticity (Nc≈{NC_POP})" if ENGLISH else f"Submodell C: Demografi med Ne-känslig miljöstokasticitet (Nc≈{NC_POP})")
     plt.legend(ncol=2, fontsize=8)
     plt.tight_layout()
 
@@ -2813,7 +2816,7 @@ def main():
             if H_mean_curve_link is None:
                 continue
 
-            label = f"Ne/Nc={ratio:.2f}, Inv={My}/år"
+            label = (f"Ne/Nc={ratio:.2f}, Imm={My}/yr" if ENGLISH else f"Ne/Nc={ratio:.2f}, Inv={My}/år")
 
             # Mean line & CI ribbon with viridis colour
             plt.plot(
@@ -2837,13 +2840,13 @@ def main():
     plt.text(
         TIME_HORIZON_YEARS,
         H_threshold + 0.01,
-        f"{int(H_MIN_FRAC*100)}% av H0",
+        (f"{int(H_MIN_FRAC*100)}% of H0" if ENGLISH else f"{int(H_MIN_FRAC*100)}% av H0"),
         ha="right", va="bottom", fontsize=9, color="black"
     )
 
-    plt.xlabel("År")
-    plt.ylabel("Heterozygositet H(t)")
-    plt.title("Submodell Blink: Ekogenetisk koppling (demografi → genetik)")
+    plt.xlabel("Year" if ENGLISH else "År")
+    plt.ylabel("Heterozygosity H(t)" if ENGLISH else "Heterozygositet H(t)")
+    plt.title("Sub-model Blink: Eco-genetic coupling (demography → genetics)" if ENGLISH else "Submodell Blink: Ekogenetisk koppling (demografi → genetik)")
     plt.legend(fontsize=8, ncol=2)
     plt.tight_layout()
 
@@ -2865,9 +2868,9 @@ def main():
 
     plt.figure(figsize=(5, 3))
     plt.plot(years, factors, lw=2)
-    plt.xlabel("År sedan anläggning")
-    plt.ylabel("σₑ-multiplikator")
-    plt.title("Initial störning → stabilisering")
+    plt.xlabel("Years since establishment" if ENGLISH else "År sedan anläggning")
+    plt.ylabel("σ_e multiplier" if ENGLISH else "σₑ-multiplikator")
+    plt.title("Initial disturbance → stabilisation" if ENGLISH else "Initial störning → stabilisering")
     plt.grid(alpha=0.3)
     fig_disturb = os.path.join(result_dir, "disturbance_decay.png")
     plt.tight_layout()
