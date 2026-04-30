@@ -33,3 +33,10 @@ SCORE_WEIGHTS = {"genetic": 0.5, "demographic": 0.5}
 # === tie demography to Ne (50/500 intuition) ===
 NE_TARGET = 100.0     # below this Ne, volatility ramps up
 ALPHA = 0.7           # curvature of penalty; 0.5–1 is reasonable. lower = gentler.
+
+# === Life-history model for generational Ne correction (genetics only) ===
+# "monocarpic"      — Vitalis et al. (2004): Ne_gen = ((2-s)/2) * N * T²
+# "annual_seedbank" — Nunney (2002): Ne_gen = N * T
+# "iteroparous"     — Nunney (1991): no upward T-correction (ne_ratio captures this)
+NE_GENERATION_MODEL = "iteroparous"
+S_PREREPRODUCTIVE_MORTALITY = 0.0   # not applicable for iteroparous organisms

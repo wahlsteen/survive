@@ -1,14 +1,14 @@
 # =============== CONFIG VERBASCUM LYCHNITIS ===============================================================================================
 NE_RATIOS = [0.05, 0.1, 0.15]        # Ne / Nc
 GEN_TIME_YEARS = (4, 5)               # min, max (years per generation)
-MIGRANTS_PER_YEAR = [8]       # immigration (breeders/year)
+MIGRANTS_PER_YEAR = [1]       # immigration (breeders/year)
 
 TIME_HORIZON_YEARS = 100              # years
 QUASI_EXT_THRESHOLD = 5               # quasi-extinction at/below this N
 SURVIVAL_TARGET = 0.95                # survival threshold for plots and flagging (95%)
 
 DENSITY_MODEL = "ricker"        # "ricker" or "theta-logistic"
-K = 230                         # carrying capacity (breeding adults)
+K = 636                         # carrying capacity (breeding adults)
 THETA = 1.0                     # θ for theta-logistic; 1.0 reduces to logistic
 
 H0 = 0.6                 # starting observed heterozygosity (species/population)
@@ -42,5 +42,5 @@ RANDOM_SEED = 42
 # "iteroparous"     — Nunney (1991): no upward T-correction (ne_ratio captures this)
 #                     Use for perennial plants with vegetative survival, amphibians, etc.
 NE_GENERATION_MODEL = "monocarpic"
-S_PREREPRODUCTIVE_MORTALITY = 0.5   # fraction of plants dying before first reproduction
+S_PREREPRODUCTIVE_MORTALITY = 0.05   # fraction of plants dying before first reproduction
                                     # (rosettes that never flower); only used if monocarpic

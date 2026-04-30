@@ -54,8 +54,8 @@ NE_GENERATION_MODEL       = getattr(cfg, "NE_GENERATION_MODEL", "iteroparous")
 S_PREREPRODUCTIVE_MORTALITY = getattr(cfg, "S_PREREPRODUCTIVE_MORTALITY", 0.0)
 
 # =============== PROJECT CONFIG ===============================================================================================
-PROJECT_NAME = "C260159_Verbascum_Landskrona_exploatering_kompensation"         # used for results folder naming
-NC_POP =     230                                     # census for the total population
+PROJECT_NAME = "C260159_Verbascum_Landskrona_vitalis_0-scen"         # used for results folder naming
+NC_POP =     636                                     # census for the total population
 NC_METAPOP = K                                      # census for meta population, breeders locally (pond etc.). 
 
 # Disturbance / pond maturation profile
@@ -717,6 +717,7 @@ def _run_full_pipeline(result_dir, rng):
                 ne_ratio_start=NE_RATIO_START,            # <- project-level start
                 ne_ratio_end=NE_RATIO_END,                # <- project-level end
                 ne_ratio_relax_years=NE_RATIO_RELAX_YEARS,
+                ne_gen_multiplier=_ne_gen_multiplier(gen_time_for_plot),
             )
             # Bootstrap CI across replicates at each recorded time point
             mean_curve = []
@@ -2569,6 +2570,7 @@ def main():
                 ne_ratio_start=NE_RATIO_START,            # <- project-level start
                 ne_ratio_end=NE_RATIO_END,                # <- project-level end
                 ne_ratio_relax_years=NE_RATIO_RELAX_YEARS,
+                ne_gen_multiplier=_ne_gen_multiplier(gen_time_for_plot),
             )
             # Bootstrap CI across replicates at each recorded time point
             mean_curve = []
