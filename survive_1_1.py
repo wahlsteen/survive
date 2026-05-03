@@ -17,8 +17,10 @@ elif SPECIES == "V":
     import config_verbascum as cfg
 elif SPECIES == "H":
     import config_helichrysum as cfg
+elif SPECIES == "A":
+    import config_bird as cfg
 elif SPECIES == "M":
-    import config_my_own_species as cfg
+    import config_mammal as cfg
 else:
     raise ValueError(f"Unknown SPECIES {SPECIES!r}")
 

@@ -18,10 +18,12 @@ st.set_page_config(page_title="SURVIVE v1.1", page_icon="🌿", layout="wide")
 _run_lock = threading.Lock()
 
 SPECIES_OPTIONS = {
-    "V": ("Verbascum lychnitis",  "config_verbascum"),
-    "B": ("Bufo bufo",            "config_bufo"),
-    "L": ("Lissotriton vulgaris", "config_lissotriton"),
-    "H": ("Helichrysum sp.",      "config_helichrysum"),
+    "V": ("Monocarpic biennial plant",       "config_verbascum"),
+    "H": ("Polycarpic perennial plant",      "config_helichrysum"),
+   # "B": ("Common toad (B. bufo)",          "config_bufo"),
+    "L": ("Amphibian",                       "config_lissotriton"),
+    "A": ("Bird",                            "config_bird"),
+    "M": ("Mammal",                          "config_mammal"),
 }
 
 # ════════════════════════════════ SESSION STATE ═══════════════════════════════
@@ -191,13 +193,46 @@ if run_btn:
 # ════════════════════════════════ DISPLAY ════════════════════════════════════
 res = st.session_state.run_results
 if res is None:
-    st.markdown("## 🌿 SURVIVE v1.1 — Population Viability Analysis")
+    st.markdown("## SURVIVE v1.1 — Population Viability Analysis")
     st.markdown(
         "**Sub-models:** A density demography · B genetics-only · "
         "B_link eco-genetic coupling · C Ne-sensitive demography · META weighted score"
     )
-    st.info("👈 Configure parameters in the sidebar, then click **▶ Run analysis**.\n\n"
-            "A typical run takes **30–90 seconds** depending on replicates and scenario count.")
+    st.info("SURVIVE v1.1 is a Python-based population viability analysis (PVA) tool "
+            "designed to assess the long-term viability of small or threatened populations "
+            "under uncertainty. It integrates demographic and genetic sub-models within a "
+            "unified framework, enabling practitioners to evaluate the relative importance "
+            "of stochastic demography, genetic drift, immigration, and density dependence "
+            "on population persistence over a user-defined time horizon (default 100 years)."
+            "The tool is designed for ecological consulting workflows in which species-specific "
+            "parameters are stored in separate configuration files, allowing rapid scenario "
+            "switching without modifying the core model code. It currently supports the "
+            "following life-history archetypes: short-lived monocarpic biennials, long-lived "
+            "polycarpus perennials and iteroparous animals as amphibians, birds and mammals.\n\n"
+
+            "Rather than a single monolithic model, SURVIVE decomposes the viability question "
+            "into four independent or semi-coupled sub-models (A, B, Blink, C), each "
+            "emphasising a different ecological mechanism. Their outputs can be combined "
+            "in a configurable meta-model. This structure makes model assumptions explicit "
+            "and facilitates communication with non-specialist stakeholders: each sub-model "
+            "can be presented and defended independently. \n\n"
+
+            "**Choose** a model organism in the sidebar (Species) and configure its parameters, then click **▶ Run analysis**.\n\n"
+            "A typical run takes **30–90 seconds** depending on replicates and scenario count.\n\n"
+            
+            "### Settings\n\n"
+            "**Project** — name your project here\n\n"
+            "**NC_POP** — census population size for models A & C, i.e., the number of individuals in the population\n\n"
+            "**NC_METAPOP** — local breeding population size for genetics\n\n"
+            "**Ne/Nc ratios** — comma-separated list of effective/census population size ratios\n\n"
+            "**Immigrants/yr** — comma-separated list of immigrant numbers per year\n\n"
+            "### Advanced Parameters\n\n"
+            "**r grid** — list of intrinsic growth rates of the population \n\n"
+            "**sigma grid** — list of environmental stochasticity levels\n\n"
+            "**Habitat disturbance** — parameters for an initial temporary increase in environmental stochasticity, simulating habitat disturbance events for a newly created habitat\n\n"
+            "**Founder / bottleneck** — parameters for an initial temporary reduction in Ne/Nc ratio, simulating founder events or bottlenecks if the populations has been translocated\n\n"
+            "**Meta-model weights** — weights for combining sub-model outputs into a weighted meta-model score\n\n"
+            "**Catastrophe events** — parameters for random catastrophe events causing sudden population crashes. 0.01 = 1 event per 100 years\n\n")
     st.stop()
 
 params  = res["params"]
@@ -251,7 +286,8 @@ with tab_dl:
         if st.button("📄 Generate full PDF report", type="secondary"):
             with st.spinner("Building report…"):
                 try:
-                    pdf_bytes = build_pdf_report(params, figures)
+                    pdf_bytes = build_pdf_report(params, figures,
+                                                 df_results=res["df_results"])
                     st.download_button(
                         "⬇️ Download PDF report", pdf_bytes,
                         file_name=f"SURVIVE_report_{params['project_name']}_{params['species_key']}.pdf",

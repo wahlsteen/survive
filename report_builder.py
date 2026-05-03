@@ -40,11 +40,16 @@ FIG_CAPTIONS = {
                "Brantare nedgångar visar snabbare genetisk erosion, typiskt för små eller "
                "isolerade populationer (Beebee & Griffiths, 2005; Lesbarrères et al., 2005)."),
         "en": ("**Sub-model B – Genetic variation over time**\n\n"
-               "Sub-model B calculates the change in expected heterozygosity over 100 years "
-               "as a function of Ne/Nc and migration (modified Wright–Fisher process). "
-               "The dashed line marks the 70% threshold of initial heterozygosity. "
-               "Steeper declines indicate faster genetic erosion, typical of small or "
-               "isolated populations (Beebee & Griffiths, 2005; Lesbarrères et al., 2005)."),
+                "The genetic variation model calculates the change in expected "
+                "heterozygosity over time, as a function of effective population "
+                "size (Ne/Nc) and migration. The model is based on a modified "
+                "Wright–Fisher process with migration and genetic drift. The "
+                "dashed line indicates the threshold of 70% of the original "
+                "heterozygosity , which can be used as an indicator of genetic "
+                "viability. Steeper declines in indicate faster loss of genetic "
+                "variation, typical of small or isolated populations. Differences "
+                "between curves with and without migration illustrate how gene "
+                "flow can counteract inbreeding and genetic erosion."),
     },
     "Sub-model C — Ne-sensitive demography": {
         "sv": ("**Submodell C – Demografi med Ne-känslig miljöstokasticitet**\n\n"
@@ -52,9 +57,15 @@ FIG_CAPTIONS = {
                "Miljövariansen ökar när Ne faller under ett tröskelvärde, vilket leder till "
                "ökad utdöenderisk. Den horisontella linjen vid 0.95 markerar kritisk tröskel."),
         "en": ("**Sub-model C – Demography with Ne-sensitive environmental stochasticity**\n\n"
-               "Sub-model C integrates the effects of small Ne into demographic stochasticity. "
-               "Environmental variance is amplified when Ne falls below a threshold, increasing "
-               "extinction risk. The horizontal line at 0.95 marks the critical survival threshold."),
+                "The modeling of demography with sensitivity to environmental "
+                "stochasticity integrates the effects of small effective "
+                "population size (Ne) into the demographic stochasticity. "
+                "The model increases environmental variance when Ne falls "
+                "below a threshold value, leading to larger fluctuations "
+                "in growth and thus increased extinction risk. The figure "
+                "shows the survival probability over time for different "
+                "combinations of Ne/Nc and immigration levels. The horizontal "
+                "line at 0.95 marks the critical survival threshold."),
     },
     "Sub-model B_link — Eco-genetic coupling": {
         "sv": ("**Submodell B_link – Ekogenetisk koppling (demografi → genetik)**\n\n"
@@ -63,9 +74,14 @@ FIG_CAPTIONS = {
                "genetiska simuleringar, vilket gör att demografiska flaskhalsar påverkar "
                "den genetiska variationen dynamiskt."),
         "en": ("**Sub-model B_link – Eco-genetic coupling (demography → genetics)**\n\n"
-               "Sub-model B_link jointly tracks genetic and demographic processes. The "
-               "population size time series from the demographic model feeds into genetic "
-               "simulations, so demographic bottlenecks dynamically affect genetic variation."),
+                "Finally, the submodel B_link integrates the genetic and "
+                "demographic processes directly. Here, the population size "
+                "time series from the demographic model are used as input "
+                "to genetic simulations. In this way, both environmental "
+                "variation and demographic bottlenecks affect genetic "
+                "variation dynamically. This makes the model particularly "
+                "useful for evaluating ecological-genetic feedback processes, "
+                "for example in small populations."),
     },
     "Sensitivity — sigma_e": {
         "sv": ("**Känslighetsanalys för miljöstokasticitet (σₑ)**\n\n"
@@ -116,6 +132,160 @@ def _s(text):
     )
 
 
+def _summarise_results(df, params, eng):
+    """Return a narrative summary string derived from the results dataframe."""
+    import re, pandas as pd
+    if df is None or df.empty:
+        return None
+
+    cols = df.columns.tolist()
+
+    def _fc(patterns):
+        """Find first column matching any pattern."""
+        for pat in patterns:
+            for c in cols:
+                if re.search(pat, c, re.IGNORECASE):
+                    return c
+        return None
+
+    col_A_s  = _fc([r"^A_survival"])
+    col_A_p  = _fc([r"^A_meets_target"])
+    col_C_s  = _fc([r"^C_survival"])
+    col_C_p  = _fc([r"^C_meets_target"])
+    col_B_s  = _fc([r"^B_const_survival", r"^B_survival"])
+    col_B_p  = _fc([r"^B_const_meets",    r"^B_meets_target"])
+    col_Bl_s = _fc([r"^Blink_survival"])
+    col_Bl_p = _fc([r"^Blink_meets"])
+    col_M_s  = _fc([r"^META_survival"])
+    col_M_p  = _fc([r"^META_meets"])
+
+    cfg_obj = params.get("cfg")
+    sp      = params.get("species_name", "the species")
+    T       = int(getattr(cfg_obj, "TIME_HORIZON_YEARS", 100))
+    tgt     = float(getattr(cfg_obj, "SURVIVAL_TARGET", 0.95))
+    n       = len(df)
+    parts   = []
+
+    # ── Demographic (A + C) ──────────────────────────────────────────────────
+    dem_s = [c for c in [col_A_s, col_C_s] if c]
+    dem_p = [c for c in [col_A_p, col_C_p] if c]
+    if dem_s:
+        all_v   = pd.concat([df[c].dropna() for c in dem_s])
+        d_min, d_max = all_v.min(), all_v.max()
+        d_pass  = sum(int(df[c].sum()) for c in dem_p if c in df)
+        d_total = n * len(dem_p)
+        if eng:
+            parts.append(
+                f"Demographic sub-models (A and C): survival ranges from "
+                f"{d_min:.0%} to {d_max:.0%} across the {n} tested scenarios "
+                f"({d_pass} of {d_total} scenario-model combinations pass the "
+                f"{tgt:.0%} viability target)."
+                + (" At least one demographic scenario meets the target." if d_max >= tgt
+                   else " No demographic scenario meets the target -- conservation intervention is indicated.")
+            )
+        else:
+            parts.append(
+                f"Demografiska submodeller (A och C): overlevnad spanner fran "
+                f"{d_min:.0%} till {d_max:.0%} over de {n} testade scenarierna "
+                f"({d_pass} av {d_total} scenario-modellkombinationer klarar "
+                f"{tgt:.0%}-malet)."
+                + (" Minst ett demografiskt scenario klarar malet." if d_max >= tgt
+                   else " Inget demografiskt scenario klarar malet -- bevarandeinsatser ar motiverade.")
+            )
+
+    # ── Genetic (B + B_link) ─────────────────────────────────────────────────
+    gen_s = [c for c in [col_B_s, col_Bl_s] if c]
+    gen_p = [c for c in [col_B_p, col_Bl_p] if c]
+    if gen_s:
+        all_g   = pd.concat([df[c].dropna() for c in gen_s])
+        g_min, g_max = all_g.min(), all_g.max()
+        g_pass  = sum(int(df[c].sum()) for c in gen_p if c in df)
+        g_total = n * len(gen_p)
+        if eng:
+            parts.append(
+                f"Genetic sub-models (B and B_link): heterozygosity retention ranges from "
+                f"{g_min:.0%} to {g_max:.0%} ({g_pass} of {g_total} pass). "
+                + ("Genetic diversity is maintained above threshold in at least one scenario."
+                   if g_max >= tgt else
+                   "Genetic diversity falls below the acceptable threshold in all scenarios.")
+            )
+        else:
+            parts.append(
+                f"Genetiska submodeller (B och B_link): heterozygositetsretention spanner fran "
+                f"{g_min:.0%} till {g_max:.0%} ({g_pass} av {g_total} klarar malet). "
+                + ("Genetisk mangfald bibehalls over troskelnivaen i minst ett scenario."
+                   if g_max >= tgt else
+                   "Genetisk mangfald faller under acceptabel nivaen i samtliga scenarier.")
+            )
+
+    # ── META weighted score ───────────────────────────────────────────────────
+    meta_pass = 0
+    if col_M_s and col_M_p:
+        m_min  = df[col_M_s].min()
+        m_max  = df[col_M_s].max()
+        meta_pass = int(df[col_M_p].sum())
+        if eng:
+            parts.append(
+                f"Weighted META score: {m_min:.0%} - {m_max:.0%} across scenarios; "
+                f"{meta_pass} of {n} scenarios pass the combined viability target."
+            )
+        else:
+            parts.append(
+                f"Viktat META-vitalitet: {m_min:.0%} - {m_max:.0%} over scenarier; "
+                f"{meta_pass} av {n} scenarier klarar det kombinerade malet."
+            )
+
+    # ── Overall verdict ───────────────────────────────────────────────────────
+    if col_M_p:
+        vn = meta_pass
+    elif dem_p:
+        vn = sum(int(df[c].sum()) for c in dem_p if c in df)
+    else:
+        vn = 0
+    vmax = n
+
+    if vn == vmax:
+        verdict = (
+            f"Overall conclusion: {sp} maintains viability throughout the "
+            f"{T}-year analysis under all {n} tested scenarios."
+            if eng else
+            f"Sammanfattning: {sp} bibehaller sin livskraft under hela {T}-arsanalysen "
+            f"i samtliga {n} testade scenarier."
+        )
+    elif vn == 0:
+        verdict = (
+            f"Overall conclusion: {sp} does not meet the viability target in any of the "
+            f"{n} tested scenarios over the {T}-year horizon. Active conservation "
+            f"management is strongly indicated."
+            if eng else
+            f"Sammanfattning: {sp} klarar inte vitalitetsmalet i nagot av de {n} "
+            f"testade scenarierna under {T}-arshorisonten. Aktiva bevarandeinsatser "
+            f"ar starkt motiverade."
+        )
+    else:
+        verdict = (
+            f"Overall conclusion: {sp} meets the viability target in {vn} of {n} "
+            f"scenarios. Outcomes are scenario-dependent -- immigration rate and Ne/Nc "
+            f"are the key management levers."
+            if eng else
+            f"Sammanfattning: {sp} klarar vitalitetsmalet i {vn} av {n} scenarier. "
+            f"Utfallen ar scenarioberoende -- invandring och Ne/Nc ar de viktigaste "
+            f"forvaltningsinstrumenten."
+        )
+    parts.append(verdict)
+
+    note = (
+        "Note: the exact year at which each scenario curve crosses the viability "
+        "threshold is visible in the sub-model figures (see Section 3.1-3.4)."
+        if eng else
+        "Not: det exakta ar da respektive scenarios kurva passerar vitalitetsgransvarden "
+        "framgar av submodellsfigurerna (se Avsnitt 3.1-3.4)."
+    )
+    parts.append(note)
+
+    return "\n\n".join(parts)
+
+
 def _draw_table(pdf, headers, rows, col_widths):
     pdf.set_font("Helvetica","B",9)
     pdf.set_fill_color(210,225,210)
@@ -141,7 +311,7 @@ def _fig(pdf, img_bytes):
     pdf.ln(4)
 
 
-def build_pdf_report(params, figures):
+def build_pdf_report(params, figures, df_results=None):
     """Return PDF bytes for the full PVA report."""
     from fpdf import FPDF
     eng = params.get("english", True)
@@ -169,9 +339,11 @@ def build_pdf_report(params, figures):
     def body(t): pdf.set_font("Helvetica","",10); pdf.multi_cell(W,5.5,_s(t)); pdf.ln(2)
 
     # Title
-    pdf.set_font("Helvetica","B",22); pdf.multi_cell(W,12,"SURVIVE v1.1")
-    pdf.set_font("Helvetica","I",14); pdf.multi_cell(W,8,"Population Viability Analysis Report" if eng
-                   else "Populationsvitalitetsanalys")
+    pdf.set_font("Helvetica","B",22)
+    pdf.cell(W,12,"SURVIVE v1.1",new_x="LMARGIN",new_y="NEXT")
+    pdf.set_font("Helvetica","I",14)
+    pdf.cell(W,8,"Population Viability Analysis Report" if eng
+             else "Populationsvitalitetsanalys",new_x="LMARGIN",new_y="NEXT")
     pdf.ln(3); pdf.set_draw_color(100); pdf.line(20,pdf.get_y(),190,pdf.get_y()); pdf.ln(5)
     pdf.set_font("Helvetica","",11)
     for label, val in [
@@ -186,37 +358,38 @@ def build_pdf_report(params, figures):
     # 1. Introduction
     h1("1. Introduction" if eng else "1. Inledning")
     body(
-        "SURVIVE v1.1 is a Python-based population viability analysis (PVA) tool designed "
-        "to assess the long-term viability of small or threatened populations under uncertainty. "
-        "It integrates demographic and genetic sub-models within a unified framework, enabling "
-        "practitioners to evaluate the relative importance of stochastic demography, genetic "
-        "drift, immigration, and density dependence on population persistence over a user-defined "
-        "time horizon."
+        "SURVIVE v1.1 is a Python-based population viability analysis (PVA) "
+        "tool designed to assess the long-term viability of small or threatened "
+        "populations under uncertainty. It integrates demographic and genetic "
+        "sub-models within a unified framework, enabling practitioners to evaluate "
+        "the relative importance of stochastic demography, genetic drift, "
+        "immigration, and density dependence on population persistence over a "
+        "user-defined time horizon."
         "The tool is designed for ecological consulting workflows in which species-specific "
-        "parameters are stored in separate configuration files, allowing rapid scenario switching "
-        "without modifying the core model code. It currently supports the following life-history "
-        "archetypes: monocarpic perennials (e.g. Verbascum sp.), iteroparous amphibians "
-        "(e.g. Bufo bufo, Lissotriton vulgaris) and long-lived perennials (e.g. Helichrysum arenarium), "
-        "and custom species. "
-        "Rather than a single monolithic model, SURVIVE decomposes the viability question "
-        "into four independent or semi-coupled sub-models (A, B, B_link, C), each emphasising "
-        "a different ecological mechanism.  This structure makes model assumptions explicit "
-        "and facilitates communication with non-specialist stakeholders: each sub-model can "
-        "be presented and defended independently."
-        "PVA is the formal process of estimating the probability that a population will "
-        "persist for a specified period. Survive implements extinction risk as the complement "
-        "of the quasi-extinction probability: the probability that census size  falls to or "
-        "below a quasi-extinction threshold  before the time horizon."
+        "parameters are stored in separate configuration files, "
+        "allowing rapid scenario switching without modifying the core model code. "
+        "It currently supports the following life-history archetypes: monocarpic "
+        "perennials (e.g. Verbascum sp.), iteroparous amphibians (e.g. Bufo bufo, "
+        "Lissotriton vulgaris) and long-lived perennials (e.g. Helichrysum arenarium), and custom species. "
+        "Rather than a single monolithic model, SURVIVE decomposes the viability "
+        "question into four independent or semi-coupled sub-models (A, B, B_link, C), "
+        "each emphasising a different ecological mechanism.  This structure makes model "
+        "assumptions explicit and facilitates communication with non-specialist "
+        "stakeholders: each sub-model can be presented and defended independently."
+        "PVA is the formal process of estimating the probability that a population "
+        "will persist for a specified period. Survive implements extinction risk as "
+        "the complement of the quasi-extinction probability: the probability that "
+        "census size  falls to or below a quasi-extinction threshold  before the time horizon ."
         if eng else
-        "SURVIVE v1.1 ar ett Python-baserat PVA-verktyg for att bedömma den långsiktiga "
-        "livskraften hos sma eller hotade populationer under osäkerhet. Verktyget integrerar "
+        "SURVIVE v1.1 ar ett Python-baserat PVA-verktyg for att bedomma den langsiktiga "
+        "livskraften hos sma eller hotade populationer under osakerhet. Verktyget integrerar "
         "demografiska och genetiska submodeller (A, B, B_link, C) inom ett enhetligt ramverk. "
-        "PVA uppskattar sannolikheten att populationsstorleken faller under kvasi-utdöendetröskel "
+        "PVA uppskattar sannolikheten att populationsstorleken faller under kvasi-utdoendetroskel "
         "Q fore tidshorisonten T."
     )
 
     # 2. Methods
-    # pdf.add_page()
+    pdf.add_page()
     h1("2. Methods" if eng else "2. Metod")
 
     ne_str  = ", ".join(str(x) for x in params["ne_ratios"])
@@ -231,9 +404,9 @@ def build_pdf_report(params, figures):
              f"{params['disturb_start']}x at yr 0, relaxing to {params['disturb_end']}x "
              f"over {params['disturb_relax']} yr" if has_d
              else "an established population without initial disturbance")
-        m = (f"PVA was performed for {params['species_name']} with a total popultaion of {params['nc_pop']} individuals. "
-             f"Ne/Nc ratios where set to {ne_str} and the annual immigration {mig_str} individuals/year. "
-             f" Population expansion was estimated to r = {r_str} and environmental stochasticity to sigma_e = {s_str}. The scenario represents {d}.")
+        m = (f"PVA was performed for {params['species_name']} (Nc = {params['nc_pop']}). "
+             f"Ne/Nc ratios: {ne_str}. Annual immigration: {mig_str} individuals/yr. "
+             f"r = {r_str}; sigma_e = {s_str}. The scenario represents {d}.")
         if has_b:
             m += (f" Initial Ne/Nc = {params['ne_ratio_start']}, recovering to "
                   f"{params['ne_ratio_end']} over {params['ne_ratio_relax']} yr.")
@@ -289,9 +462,16 @@ def build_pdf_report(params, figures):
         ("Meta-weight A/B/C",   f"{params['w_A']:.2f} / {params['w_B']:.2f} / {params['w_C']:.2f}", ""),
     ], [58,44,68])
 
-    # 3. Results – one section per sub-model with caption + figure
+    # 3. Results
     pdf.add_page()
     h1("3. Results" if eng else "3. Resultat")
+
+    # 3.0 Weighted summary (if results dataframe available)
+    summary_text = _summarise_results(df_results, params, eng)
+    if summary_text:
+        h2("3.0 Weighted results summary" if eng else "3.0 Viktad resultatsammanfattning")
+        body(summary_text)
+        pdf.add_page()
 
     report_figs = [
         "Sub-model A — Density-regulated demography",
@@ -306,13 +486,13 @@ def build_pdf_report(params, figures):
 
     lang = "en" if eng else "sv"
     for i, fig_label in enumerate(report_figs):
-        if i > 0:          # 3.1 sitter kvar direkt efter rubriken "3. Results"
+        if i > 0:
             pdf.add_page()
         h2(section_titles_en[i] if eng else section_titles_sv[i])
-        body(FIG_CAPTIONS.get(fig_label,{}).get(lang,""))
+        cap = FIG_CAPTIONS.get(fig_label, {}).get(lang, "")
+        if cap:
+            body(cap)
         _fig(pdf, figures.get(fig_label))
         pdf.ln(2)
-
-    return bytes(pdf.output())
 
     return bytes(pdf.output())
